@@ -1,0 +1,16 @@
+grafana:
+  enabled: true
+  service:
+    type: ClusterIP
+    port: 80
+  ingress:
+    enabled: false
+
+prometheus:
+  service:
+    type: ClusterIP
+
+alertmanager:
+  service:
+    type: ClusterIP
+
