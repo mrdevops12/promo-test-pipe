@@ -12,13 +12,16 @@ data "aws_subnet" "details" {
 
 locals {
   # Deduplicate private subnets by Availability Zone
-  private_subnets_by_az = {
-    for subnet_id, subnet in data.aws_subnet.details :
-    subnet.availability_zone => subnet_id
-    if subnet.map_public_ip_on_launch == false
-  }
-
-  private_subnet_ids = values(local.private_subnets_by_az)
+  private_subnet_ids = [
+    for az in distinct([
+      for subnet in data.aws_subnet.details :
+      subnet.availability_zone if subnet.map_public_ip_on_launch == false
+    ]) :
+    sort([
+      for subnet_id, subnet in data.aws_subnet.details :
+      subnet_id if subnet.availability_zone == az && subnet.map_public_ip_on_launch == false
+    ])[0]
+  ]
 }
 
 resource "aws_ec2_tag" "internal_elb_tag" {
