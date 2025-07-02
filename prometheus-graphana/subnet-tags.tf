@@ -11,10 +11,14 @@ data "aws_subnet" "details" {
 }
 
 locals {
-  private_subnet_ids = [
-    for subnet_id, subnet in data.aws_subnet.details : subnet_id
+  # Deduplicate private subnets by Availability Zone
+  private_subnets_by_az = {
+    for subnet_id, subnet in data.aws_subnet.details :
+    subnet.availability_zone => subnet_id
     if subnet.map_public_ip_on_launch == false
-  ]
+  }
+
+  private_subnet_ids = values(local.private_subnets_by_az)
 }
 
 resource "aws_ec2_tag" "internal_elb_tag" {
@@ -30,4 +34,3 @@ resource "aws_ec2_tag" "cluster_tag" {
   key         = "kubernetes.io/cluster/${var.eks_cluster_name}"
   value       = "owned"
 }
-
