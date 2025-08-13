@@ -1,9 +1,14 @@
+
+alb-controller.tf
+
+# OIDC Provider for EKS
 resource "aws_iam_openid_connect_provider" "eks_oidc" {
   client_id_list  = ["sts.amazonaws.com"]
   thumbprint_list = ["9e99a48a9960b14926bb7f3b02e22da0afd10df6"]
   url             = data.aws_eks_cluster.eks.identity[0].oidc[0].issuer
 }
 
+# IAM Policy for ALB Controller
 resource "aws_iam_policy" "alb_controller" {
   name        = "AWSLoadBalancerControllerIAMPolicy"
   path        = "/"
@@ -11,6 +16,7 @@ resource "aws_iam_policy" "alb_controller" {
   policy      = file("${path.module}/alb-iam-policy.json")
 }
 
+# IAM Role for ALB Controller
 resource "aws_iam_role" "alb_controller" {
   name = "alb-controller-role"
 
@@ -31,11 +37,13 @@ resource "aws_iam_role" "alb_controller" {
   })
 }
 
+# Attach IAM Policy to Role
 resource "aws_iam_role_policy_attachment" "alb_attach" {
   role       = aws_iam_role.alb_controller.name
   policy_arn = aws_iam_policy.alb_controller.arn
 }
 
+# Kubernetes Service Account with IAM Role Annotation
 resource "kubernetes_service_account" "alb_sa" {
   metadata {
     name      = "aws-load-balancer-controller"
@@ -46,8 +54,9 @@ resource "kubernetes_service_account" "alb_sa" {
   }
 }
 
+# Helm Release for AWS Load Balancer Controller
 resource "helm_release" "alb_controller" {
-  name       = "aws-load-balancer-controller"
+  name       = "alb-controller-ci"  #  Unique release name to avoid conflicts
   namespace  = "kube-system"
   repository = "https://aws.github.io/eks-charts"
   chart      = "aws-load-balancer-controller"
@@ -85,7 +94,7 @@ resource "helm_release" "alb_controller" {
 
   depends_on = [
     kubernetes_service_account.alb_sa,
-    aws_iam_openid_connect_provider.eks_oidc
+    aws_iam_openid_connect_provider.eks_oidc,
+    aws_iam_role_policy_attachment.alb_attach  
   ]
 }
-
